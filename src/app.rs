@@ -1,9 +1,22 @@
+use regex::Regex;
+//
+static mut test : bool = false;
+static mut frame_selected : &str = "default";
+//
+
+fn is_a_valid_ip(ip: &str) -> bool {
+    let re = Regex::new(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$").unwrap();
+    re.is_match(ip)
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
     // Example stuff:
     label: String,
+    ip_new_slave: String,
+    ip_target: String,
 
     // this how you opt-out of serialization of a member
     #[serde(skip)]
@@ -15,7 +28,9 @@ impl Default for TemplateApp {
         Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
-            value: 2.7,
+            ip_target: "127.0.0.1:8080".to_owned(),
+            ip_new_slave: "137.194.33.11".to_owned(),
+            value: 2.7, 
         }
     }
 }
@@ -45,7 +60,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
+        let Self { label, value, ip_new_slave, ip_target } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -65,19 +80,43 @@ impl eframe::App for TemplateApp {
         });
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
+            ui.heading("Botnet");
 
+            /*
             ui.horizontal(|ui| {
                 ui.label("Write something: ");
                 ui.text_edit_singleline(label);
             });
+            */
 
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
+            //ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
+            if ui.button("show slaves").clicked() {
+                //*value += 1.0;
+                unsafe{
+                    test = !test;
+                    frame_selected = "slaves_list";
+                };
             }
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            if ui.button("add slave").clicked() {
+                //*value += 1.0;
+                unsafe{
+                    test = !test;
+                    frame_selected = "slaves_add";
+                };
+            }
+
+            if ui.button("launch an attack").clicked() {
+                //*value += 1.0;
+                unsafe{
+                    test = !test;
+                    frame_selected = "attack_launch";
+                };
+            }
+
+
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                /*
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
                     ui.label("powered by ");
@@ -89,19 +128,66 @@ impl eframe::App for TemplateApp {
                     );
                     ui.label(".");
                 });
+                */
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            egui::warn_if_debug_build(ui);
+            unsafe{
+                match frame_selected{
+                    "slaves_list" =>{
+                        ui.heading("Show current slaves");
+                        //ui.hyperlink("https://github.com/emilk/eframe_template");
+                        ui.add(egui::github_link_file!(
+                            "https://github.com/emilk/eframe_template/blob/master/",
+                            "127.0.0.1:8080 - connected"
+                        ));
+                    },
+                    "slaves_add" =>{
+                        ui.heading("Add a new slave");
+                        ui.horizontal(|ui| {
+                            ui.label("IP address (IP:PORT): ");
+                            ui.text_edit_singleline(ip_new_slave);
+                        });
+
+                        if ui.button("add slave").clicked(){
+                            if is_a_valid_ip(ip_target){
+                                println!("Adding slave {}", ip_new_slave);
+                            }
+                            else{
+                                println!("Invalid IP address");
+                            }
+                        };
+                    },
+                    "attack_launch" =>{
+                        ui.heading("Launch a DDoS attack");
+                        ui.horizontal(|ui| {
+                            ui.label("Target (IP:PORT): ");
+                            ui.text_edit_singleline(ip_target);
+                        });
+                        
+                        if ui.button("Launch attack").clicked(){
+                            if is_a_valid_ip(ip_target){
+                                println!("Launching attack on {}", ip_target);
+                            }
+                            else{
+                                println!("Invalid IP address");
+                            }
+                        };
+                    },
+                    _ =>{
+                        ui.heading("eframe DEFAULT");
+                        //ui.hyperlink("https://github.com/emilk/eframe_template");
+                        ui.add(egui::github_link_file!(
+                            "https://github.com/emilk/eframe_template/blob/master/",
+                            "127.0.0.1:8080 - connected"
+                        ));
+                    }
+                }
+            };
+            //egui::warn_if_debug_build(ui);
         });
 
         if false {
