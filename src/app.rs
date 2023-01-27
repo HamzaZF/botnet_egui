@@ -202,7 +202,7 @@ impl eframe::App for TemplateApp {
 }
 
 /********************************BACKEND***********************************/
-/*
+
 
 use std::{net::TcpStream, io::{Write, Read, self}, fs::{self, File, OpenOptions}, ops::Add, os::windows::prelude::AsSocket, time::Duration};//, error::Error};
 use easyinput::input;
@@ -212,6 +212,8 @@ use std::net::Ipv4Addr;
 use sysinfo::{NetworkExt, ProcessExt, System, SystemExt};
 
 use std::env;
+
+mod SystemInfo;
 
 //mod SystemInfo;
 
@@ -553,6 +555,7 @@ fn read_system_infos(stream : &TcpStream) -> [u8; 16]{
     return buffer;
 }
 
+/*
 fn read_uuid(stream : &TcpStream) -> Uuid{
     let mut stream = stream.try_clone().unwrap();
         loop{
@@ -567,7 +570,9 @@ fn read_uuid(stream : &TcpStream) -> Uuid{
             }
         }
 }
+*/
 
+/*
 fn read_vec_from_file(filename: &str) -> Vec<Uuid>{
 
     let mut vec_uuid : Vec<Uuid> = Vec::new();
@@ -590,8 +595,10 @@ fn read_vec_from_file(filename: &str) -> Vec<Uuid>{
     println!("{:?}", vec_uuid);
     vec_uuid
 }
+*/
 
 // Define a function that takes a `Vec<i64>` and a file path as arguments
+/*
 fn write_vec_to_file(vec: Vec<Uuid>, path: &str) {
     // Open the file at the specified path
     let mut file = match File::create(path) {
@@ -611,7 +618,7 @@ fn write_vec_to_file(vec: Vec<Uuid>, path: &str) {
         Err(err) => panic!("Error writing to file: {}", err),
     };
 }
-
+*/
 fn get_system_informations() -> SystemInfo::SystemInfo{
     let mut sys = System::new_all();
 
@@ -641,4 +648,3 @@ fn get_system_informations() -> SystemInfo::SystemInfo{
 
 
 
-*/
